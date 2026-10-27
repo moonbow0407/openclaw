@@ -490,6 +490,37 @@ describe("Telegram registered adapter conformance over HTTP", () => {
       expect(readQueuedDeliveryEntriesForTest(state.stateDir)).toEqual([]);
     });
 
+    it.each([
+      { name: "non-forum reply chain", topicProof: {}, threadId: undefined },
+      { name: "forum topic reply", topicProof: { is_topic_message: true }, threadId: "99" },
+    ])("reports the provider thread of an unthreaded group reply ($name)", async (scenario) => {
+      fixture.responseFor = (method) =>
+        method === "sendMessage"
+          ? {
+              message_id: 102,
+              date: 1_700_000_000,
+              chat: { id: -100123, type: "supergroup", title: "Fixture group" },
+              message_thread_id: 99,
+              ...scenario.topicProof,
+              text: "group answer",
+            }
+          : undefined;
+      const result = await action(
+        "send",
+        { to: "-100123", message: "group answer" },
+        {
+          sessionKey: "agent:main:telegram:group:-100123",
+          reply: { replyToId: "101", source: "explicit" },
+        },
+      );
+      expectMethods("sendMessage");
+      expect(requestFields()).not.toHaveProperty("message_thread_id");
+      expect(result.details).toMatchObject({ ok: true, messageId: "102", chatId: "-100123" });
+      const receipt = (result.details as { receipt?: Record<string, unknown> }).receipt;
+      expect(receipt).toMatchObject({ replyToId: "101" });
+      expect(receipt?.threadId).toBe(scenario.threadId);
+    });
+
     it.each([undefined, "caller"] as const)(
       "leaves exactly one retry owner after a proven pre-dispatch failure (%s)",
       async (deliveryRetryOwner) => {
