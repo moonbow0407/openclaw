@@ -2727,7 +2727,9 @@ describe("server-channels auto restart", () => {
     await monitor.waitForIdle();
     expect(startAccount).not.toHaveBeenCalled();
 
+    await manager.stopChannel("discord", DEFAULT_ACCOUNT_ID);
     await manager.startChannels();
+    expect(manager.isManuallyStopped("discord", DEFAULT_ACCOUNT_ID)).toBe(true);
     await flushMicrotasks();
     const stopTask = manager.stopChannel("discord", DEFAULT_ACCOUNT_ID);
     await flushMicrotasks();

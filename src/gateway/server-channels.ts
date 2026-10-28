@@ -1260,6 +1260,7 @@ export function createChannelManager(opts: ChannelManagerOptions): ChannelManage
           await measureStartup(`channels.${plugin.id}.start`, () =>
             startChannelInternal(plugin.id, undefined, {
               reason: "startup",
+              preserveManualStop: opts.deferStartupAccountStartsUntil !== undefined,
               ...startOptions,
             }),
           );
