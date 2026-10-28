@@ -520,6 +520,7 @@ export async function terminalizeRestartSafeChatAdmission(
   params: RestartSafeChatTerminalState & {
     admittedSessionId: string;
     clientRunId: string;
+    controlUiVisible?: boolean;
     expectedLifecycleRevision: string | undefined;
     target: SessionEntryTargetPatchScope & { readSource: CapturedSessionEntryReadSource };
     assertCurrent: () => void;
@@ -545,6 +546,7 @@ export async function terminalizeRestartSafeChatAdmission(
           event: {
             runId: params.clientRunId,
             ts: endedAt,
+            controlUiVisible: params.controlUiVisible,
             data: {
               phase: params.status === "failed" ? "error" : "end",
               startedAt: params.startedAt,

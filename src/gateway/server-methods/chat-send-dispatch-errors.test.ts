@@ -223,45 +223,25 @@ describe("handleChatSendSetupError", () => {
 
 describe("createChatSendDispatchErrorLifecycle", () => {
   it.each([
-    { settlement: "fallback", missingProfile: false, policyFailure: false, sessionChanged: false },
+    { settlement: "fallback" },
     { settlement: "fallback", stateContention: true },
     { settlement: "fallback", restartFailure: true },
     { settlement: "restart-safe", restartFailure: true },
     { settlement: "restart-safe", stateContention: true },
-    {
-      settlement: "restart-safe",
-      missingProfile: false,
-      policyFailure: false,
-      sessionChanged: false,
-    },
-    { settlement: "fallback", missingProfile: true, policyFailure: false, sessionChanged: false },
-    {
-      settlement: "restart-safe",
-      missingProfile: true,
-      policyFailure: false,
-      sessionChanged: false,
-    },
-    { settlement: "fallback", missingProfile: false, policyFailure: true, sessionChanged: false },
-    {
-      settlement: "restart-safe",
-      missingProfile: false,
-      policyFailure: true,
-      sessionChanged: false,
-    },
-    { settlement: "fallback", missingProfile: false, policyFailure: false, sessionChanged: true },
-    {
-      settlement: "restart-safe",
-      missingProfile: false,
-      policyFailure: false,
-      sessionChanged: true,
-    },
+    { settlement: "restart-safe" },
+    { settlement: "fallback", missingProfile: true },
+    { settlement: "restart-safe", missingProfile: true },
+    { settlement: "fallback", policyFailure: true },
+    { settlement: "restart-safe", policyFailure: true },
+    { settlement: "fallback", sessionChanged: true },
+    { settlement: "restart-safe", sessionChanged: true },
   ])(
     "records the rejected input and bounded error through $settlement settlement (missing profile: $missingProfile, policy refusal: $policyFailure, session changed: $sessionChanged)",
     async ({
       settlement,
-      missingProfile,
-      policyFailure,
-      sessionChanged,
+      missingProfile = false,
+      policyFailure = false,
+      sessionChanged = false,
       stateContention,
       restartFailure,
     }) => {

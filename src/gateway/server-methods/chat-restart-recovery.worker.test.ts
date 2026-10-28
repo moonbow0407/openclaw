@@ -12,6 +12,7 @@ import {
   upsertSessionEntryCore,
 } from "../../config/sessions/session-accessor.sqlite-entry.js";
 import { readSessionEntriesFromStoreInWorker } from "../../config/sessions/session-entry-read-runtime.js";
+import { deriveSessionUnread } from "../../shared/session-unread.js";
 import { closeOpenClawAgentDatabasesAsync } from "../../state/openclaw-agent-db-lifecycle.js";
 import * as writeAdmission from "../../state/openclaw-agent-write-admission.js";
 import { withOpenClawTestState } from "../../test-utils/openclaw-test-state.js";
@@ -50,6 +51,7 @@ async function seedTerminalTarget(storePath: string, source = false, lifecycle =
   await upsertSessionEntryCore(target, {
     sessionId,
     updatedAt: 1_000,
+    lastReadAt: 2_000,
     ...(lifecycle ? { lifecycleRevision: "terminal-lifecycle" } : {}),
     restartRecoveryDeliveryRunId: clientRunId,
     ...(source ? { restartRecoveryDeliverySourceRunId: "source-run" } : {}),
@@ -57,52 +59,59 @@ async function seedTerminalTarget(storePath: string, source = false, lifecycle =
   return target;
 }
 
-it("terminalizes the current source of the same admitted run without tombstoning stale source facts", () =>
-  withOpenClawTestState({ scenario: "minimal" }, async (state) => {
-    const target = await seedTerminalTarget(state.statePath("terminal.sqlite"), true);
-    const terminal = await prepareTerminalTarget(target);
-    const foreign = new DatabaseSync(target.storePath);
-    const write = writeAdmission.runOpenClawAgentWorkerWrite;
-    const changed = vi.fn();
-    const spy = vi
-      .spyOn(writeAdmission, "runOpenClawAgentWorkerWrite")
-      .mockImplementation((options, run, ...rest) =>
-        write(
-          options,
-          async () => {
-            if (
-              !("target" in options) &&
-              options.path === target.storePath &&
-              !changed.mock.calls.length
-            ) {
-              foreign
-                .prepare(
-                  "UPDATE session_nodes SET entry_json = json_set(entry_json, '$.restartRecoveryDeliverySourceRunId', ?) WHERE session_key = ?",
-                )
-                .run("current-source", target.sessionKey);
-              changed();
-            }
-            return run();
-          },
-          ...rest,
-        ),
-      );
-    try {
-      await expect(terminalizeRestartSafeChatAdmission(terminal)).resolves.toBe(true);
-      expect(changed).toHaveBeenCalledOnce();
-      const entry = loadSessionEntry(target);
-      expect(entry).toMatchObject({
-        status: "killed",
-        lastRunId: clientRunId,
-        restartRecoveryTerminalRunIds: ["current-source"],
-      });
-      expect(entry?.restartRecoveryDeliveryRunId).toBeUndefined();
-      expect(entry?.restartRecoveryDeliverySourceRunId).toBeUndefined();
-    } finally {
-      spy.mockRestore();
-      foreign.close();
-    }
-  }));
+it.each([false, true])(
+  "terminalizes the current source and preserves unread visibility (%s)",
+  (controlUiVisible) =>
+    withOpenClawTestState({ scenario: "minimal" }, async (state) => {
+      const target = await seedTerminalTarget(state.statePath("terminal.sqlite"), true);
+      const terminal = await prepareTerminalTarget(target);
+      const foreign = new DatabaseSync(target.storePath);
+      const write = writeAdmission.runOpenClawAgentWorkerWrite;
+      const changed = vi.fn();
+      const spy = vi
+        .spyOn(writeAdmission, "runOpenClawAgentWorkerWrite")
+        .mockImplementation((options, run, ...rest) =>
+          write(
+            options,
+            async () => {
+              if (
+                !("target" in options) &&
+                options.path === target.storePath &&
+                !changed.mock.calls.length
+              ) {
+                foreign
+                  .prepare(
+                    "UPDATE session_nodes SET entry_json = json_set(entry_json, '$.restartRecoveryDeliverySourceRunId', ?) WHERE session_key = ?",
+                  )
+                  .run("current-source", target.sessionKey);
+                changed();
+              }
+              return run();
+            },
+            ...rest,
+          ),
+        );
+      try {
+        await expect(
+          terminalizeRestartSafeChatAdmission({ ...terminal, controlUiVisible }),
+        ).resolves.toBe(true);
+        expect(changed).toHaveBeenCalledOnce();
+        const entry = loadSessionEntry(target);
+        expect(entry).toMatchObject({
+          status: "killed",
+          lastRunId: clientRunId,
+          restartRecoveryTerminalRunIds: ["current-source"],
+        });
+        expect(entry?.restartRecoveryDeliveryRunId).toBeUndefined();
+        expect(entry?.restartRecoveryDeliverySourceRunId).toBeUndefined();
+        expect(entry?.lastActivityAt).toBe(controlUiVisible ? entry?.endedAt : undefined);
+        expect(deriveSessionUnread(entry)).toBe(controlUiVisible);
+      } finally {
+        spy.mockRestore();
+        foreign.close();
+      }
+    }),
+);
 
 it("does not terminalize a replacement physical store containing the same claim", () =>
   withOpenClawTestState({ scenario: "minimal" }, async (state) => {

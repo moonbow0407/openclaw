@@ -295,6 +295,7 @@ export function createChatSendWorkAdmission(params: {
     sourceRef: RpcSourceRef;
     admittedSessionId: string;
     runId: string;
+    controlUiVisible: boolean;
     lifecycleRevision: string | undefined;
     isActive: () => boolean;
     currentRegistration: () => RpcSourceRef | undefined;
@@ -493,6 +494,7 @@ export function createChatSendWorkAdmission(params: {
           ...settlement,
           admittedSessionId: terminal.admittedSessionId,
           clientRunId: terminal.runId,
+          controlUiVisible: terminal.controlUiVisible,
         });
       } finally {
         settlement.release();

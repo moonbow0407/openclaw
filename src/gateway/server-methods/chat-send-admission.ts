@@ -32,6 +32,7 @@ import {
   isRpcSourceRegistered,
 } from "../../sessions/session-controller.rpc-sources.js";
 import { captureSessionControllerInterruptBefore } from "../../sessions/session-controller.stop-runtime.js";
+import { isBrowserOperatorUiClient } from "../../utils/message-channel.js";
 import { registerChatAbortController } from "../chat-abort.js";
 import type { DedupeEntry } from "../server-shared.js";
 import {
@@ -124,8 +125,7 @@ export async function admitChatSend(params: ChatSendAdmissionParams) {
   const preparedGoalRetry = request.goalOperation
     ? await prepareGoalChatSendRetry(params)
     : undefined;
-  const pendingRetry = prepareChatSendAdmissionRetry(params);
-  const preparedRetry = pendingRetry instanceof Promise ? await pendingRetry : pendingRetry;
+  const preparedRetry = await prepareChatSendAdmissionRetry(params);
   const clearReservationAndThrow = (error: unknown): never => {
     reservation.clear();
     throw error;
@@ -630,6 +630,7 @@ export async function admitChatSend(params: ChatSendAdmissionParams) {
       sourceRef,
       admittedSessionId,
       runId: clientRunId,
+      controlUiVisible: !progressRefresh && isBrowserOperatorUiClient(request.clientInfo),
       lifecycleRevision: (admittedSessionEntry ?? initialSessionEntry)?.lifecycleRevision,
       isActive: () => acquiredGatewayWorkAdmission.isActive(),
       currentRegistration: () => (isRpcSourceRegistered(sourceRef) ? sourceRef : undefined),
