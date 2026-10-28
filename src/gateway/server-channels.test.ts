@@ -2360,6 +2360,15 @@ describe("server-channels auto restart", () => {
       },
     );
 
+    const monitor = startChannelHealthMonitor({
+      scheduler: createTestGatewayScheduler("fake-timers"),
+      channelManager: manager,
+    });
+    await vi.advanceTimersByTimeAsync(60_000);
+    monitor.shutdown();
+    await monitor.waitForIdle();
+    expect(startAccount).not.toHaveBeenCalled();
+
     await manager.startChannels();
     expect(startAccount).not.toHaveBeenCalled();
     nativeApprovalRuntime.current = { request } as unknown as GatewayNativeApprovalRuntime;
@@ -2708,6 +2717,15 @@ describe("server-channels auto restart", () => {
         deferStartupAccountStartsUntil: releaseAccountStart.promise,
       },
     );
+
+    const monitor = startChannelHealthMonitor({
+      scheduler: createTestGatewayScheduler("fake-timers"),
+      channelManager: manager,
+    });
+    await vi.advanceTimersByTimeAsync(60_000);
+    monitor.shutdown();
+    await monitor.waitForIdle();
+    expect(startAccount).not.toHaveBeenCalled();
 
     await manager.startChannels();
     await flushMicrotasks();

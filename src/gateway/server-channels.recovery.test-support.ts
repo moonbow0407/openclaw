@@ -187,35 +187,6 @@ export function registerChannelAutostartRecoveryTests({
     }
   });
 
-  it.each(["release", "stop"] as const)(
-    "holds health-monitor account starts at the startup gate until %s",
-    async (action) => {
-      const accountStartReady = createDeferred();
-      const scheduler = createTestGatewayScheduler("fake-timers");
-      const { manager, startAccount } = install(stayRunning, {
-        scheduler,
-        deferStartupAccountStartsUntil: accountStartReady.promise,
-      });
-      const monitor = startChannelHealthMonitor({ scheduler, channelManager: manager });
-      try {
-        await vi.advanceTimersByTimeAsync(60_000);
-        await monitor.waitForIdle();
-        expect(startAccount).not.toHaveBeenCalled();
-
-        await manager.startChannels();
-        if (action === "stop") {
-          await manager.stopChannel("discord", DEFAULT_ACCOUNT_ID);
-        }
-        accountStartReady.resolve();
-        await flushMicrotasks();
-
-        expect(startAccount).toHaveBeenCalledTimes(action === "release" ? 1 : 0);
-      } finally {
-        monitor.shutdown();
-      }
-    },
-  );
-
   describe("crash-loop channel autostart recovery", () => {
     let originalEnv: ReturnType<typeof captureEnv>;
     beforeEach(() => {
