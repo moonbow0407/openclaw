@@ -189,7 +189,7 @@ export function registerChannelAutostartRecoveryTests({
 
   it("does not start deferred channel accounts after stop wins the startup handoff", async () => {
     const releaseAccountStart = createDeferred();
-    const measureMock = vi.fn(async (name: string, run: () => unknown) => await run());
+    const measureMock = vi.fn(async (_name: string, run: () => unknown) => await run());
     const startupTrace = {
       measure: async <T>(name: string, run: () => T | Promise<T>) =>
         (await measureMock(name, run)) as T,
