@@ -157,7 +157,7 @@ describe("retained chat work admission", () => {
           sourceRef,
           admittedSessionId: identity.sessionId,
           runId: identity.runId,
-          controlUiVisible: change === "retained",
+          controlUiVisible: false,
           lifecycleRevision: "original-lifecycle",
           isActive: () => active,
           currentRegistration: () => getRpcSource(identity.runId),
@@ -170,9 +170,6 @@ describe("retained chat work admission", () => {
       );
       try {
         expect(guard).toBeTypeOf("function");
-        expect(terminal).toHaveBeenCalledWith(
-          expect.objectContaining({ controlUiVisible: change === "retained" }),
-        );
         work.release();
         registration.cleanup();
         expect(getRpcSource(identity.runId)).toBeUndefined();

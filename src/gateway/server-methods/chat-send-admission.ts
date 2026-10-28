@@ -125,7 +125,8 @@ export async function admitChatSend(params: ChatSendAdmissionParams) {
   const preparedGoalRetry = request.goalOperation
     ? await prepareGoalChatSendRetry(params)
     : undefined;
-  const preparedRetry = await prepareChatSendAdmissionRetry(params);
+  const pendingRetry = prepareChatSendAdmissionRetry(params);
+  const preparedRetry = pendingRetry instanceof Promise ? await pendingRetry : pendingRetry;
   const clearReservationAndThrow = (error: unknown): never => {
     reservation.clear();
     throw error;
@@ -368,9 +369,8 @@ export async function admitChatSend(params: ChatSendAdmissionParams) {
           replyTargetsCaptured = true;
         }
         if (request.goalOperation?.action === "start" && !latestEntry && !requestedSessionId) {
-          const prepared = preparedGoalEntry!;
-          initialSessionEntry = prepared.entry;
-          assertInitialSkillSelection = prepared.assertSkillSelection;
+          initialSessionEntry = preparedGoalEntry!.entry;
+          assertInitialSkillSelection = preparedGoalEntry!.assertSkillSelection;
           admittedSessionId = initialSessionEntry.sessionId;
         }
         if (context.workerSessionPlacementService !== placementService) {
