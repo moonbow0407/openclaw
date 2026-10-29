@@ -173,30 +173,6 @@ describe("cli session history", () => {
     expectDeduped(localMessage, importedMessage);
   });
 
-  it.each(
-    ["", `${CLAUDE_RESUME_DRIFT_NOTES[0]}\n\n`].flatMap((driftContext) =>
-      [
-        "messages occurred outside this Claude session",
-        "messages recorded in this chat since your last reply here (possibly already in this session)",
-        "earlier messages in this chat",
-      ].map((description) => ({ driftContext, description })),
-    ),
-  )(
-    "dedupes $description context before optional drift context: $driftContext",
-    ({ driftContext, description }) => {
-      const prompt = "What token did I give the other model?";
-      const localMessage = user(prompt, 1_000, { id: "local-return", senderIsOwner: true });
-      const note = `[OpenClaw: 2 ${description} from 2026-10-10T22:30:29.302Z to 2026-10-10T22:30:43.592Z, using "mock/mock-model". Their contents are not included here. Before answering a question that may depend on these messages, call mcp__openclaw__sessions_history({"sessionKey":"agent:main:switch-back","limit":100}) to read them; page older messages with offset if needed.]`;
-      const importedMessage = user(
-        `${note}\n\n${driftContext}${prompt}`,
-        1_001,
-        cliMeta("native-return"),
-      );
-      expectDeduped(localMessage, importedMessage);
-      expect(merge([], [importedMessage])).toEqual([importedMessage]);
-    },
-  );
-
   it("keeps ordinary matches after an unsuccessful stripped lookup", () => {
     const timestamp = 1_000;
     const literal = `${CLAUDE_RESUME_DRIFT_NOTES[0]}\n\nhello`;
@@ -604,30 +580,29 @@ describe("cli session history", () => {
 
   it.each([
     {
-      name: "keeps a backdated exec completion after the answer it followed",
-      localMessages: [
-        { role: "assistant", content: "long final answer", timestamp: 200 },
-        {
-          role: "user",
-          content: "Exec completed",
-          timestamp: 100,
-          provenance: { kind: "internal_system", sourceTool: "exec" },
-        },
-        { role: "assistant", content: "short follow-up", timestamp: 300 },
+      name: "keeps earlier imports before a backdated local's preceding answer",
+      localMessages: [200, 100, 300].map((t) => historyRow(`local ${t}`, t)),
+      imported: [50, 150, 200, 250].map((t) => historyRow(`import ${t}`, t)),
+      expected: [
+        "import 50",
+        "import 150",
+        "local 200",
+        "local 100",
+        "import 200",
+        "import 250",
+        "local 300",
       ],
-      imported: [{ role: "assistant", content: "unmatched cli import", timestamp: 50 }],
-      expected: ["unmatched cli import", "long final answer", "Exec completed", "short follow-up"],
     },
     {
       name: "splices unmatched imports in timestamp order without moving local rows",
       localMessages: [200, 300, 0, 400, 500, 600].map((t) => historyRow(`local ${t}`, t)),
       imported: [150, 100].map((t) => historyRow(`import ${t}`, t)),
       expected: [
+        "import 100",
+        "import 150",
         "local 200",
         "local 300",
         "local 0",
-        "import 100",
-        "import 150",
         "local 400",
         "local 500",
         "local 600",
